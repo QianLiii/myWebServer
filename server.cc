@@ -1,7 +1,9 @@
 #include "server.hh"
 
 Server::Server(in_port_t port, size_t thread_num, size_t timeout)
-    : _port(port), _thread_num(thread_num), _timeout(timeout), _is_close(false), _epoller(new Epoller(MAX_EVENTS))
+    : _port(port), _thread_num(thread_num), _timeout(timeout), _is_close(false),
+    _epoller(std::make_unique<Epoller>(MAX_EVENTS)),
+    _pool(std::make_unique<Thread_Pool>(thread_num))
 {
     if(!_init_socket()) {
         throw std::exception();
@@ -42,7 +44,6 @@ void Server::_loop() {
     while(!_is_close) {
         std::cout<<"looping..."<<std::endl;
         int num_of_events = _epoller->wait(_timeout);
-        std::cout<<num_of_events<<std::endl;
         if(num_of_events < 0) {
             throw std::exception();
         }
@@ -61,11 +62,12 @@ void Server::_loop() {
             }
             // 分发读事件
             else if(ev & EPOLLIN) {
-                _read(fd);   
+                // bind成员函数要传入this
+                _pool->push_task(std::bind(&Server::_read, this, fd));
             }
             // 分发写事件
             else if(ev & EPOLLOUT) {
-                _write(fd);
+                _pool->push_task(std::bind(&Server::_write, this, fd));
             }
         }
     }
@@ -73,6 +75,7 @@ void Server::_loop() {
 
 // 向_epoller中添加新的socket
 void Server::_add_new_sock() {
+    std::cout<<"new client comes\n";
     sockaddr_in addr{};
     socklen_t len{sizeof(addr)};
     int cli_sock = accept(_serv_sock, (sockaddr *)&addr, &len);
@@ -86,6 +89,7 @@ void Server::_add_new_sock() {
 
 // 从client socket读，非阻塞IO，边沿触发
 void Server::_read(int fd) {
+    std::cout<<"handling reading...\n";
     auto & handler = _handlers[fd];
     int total_bytes = 0;
     while(true) {
@@ -123,6 +127,7 @@ void Server::_read(int fd) {
 
 // 向client socket写，一次写完，没有特殊的处理
 void Server::_write(int fd) {
+    std::cout<<"handling writing...\n";
     auto &buf = _handlers[fd]->_wr_buf;
     write(fd, &(buf[0]), buf.size());
 

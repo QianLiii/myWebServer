@@ -10,6 +10,7 @@
 
 #include "epoller.hh"
 #include "echo_handler.hh"
+#include "thread_pool.hh"
 
 #define MAX_EVENTS 1024
 
@@ -25,7 +26,7 @@ private:
     int _serv_sock;
     std::unique_ptr<Epoller> _epoller;
     std::map<int, std::shared_ptr<Echo_Handler>> _handlers;
-    // threadpool
+    std::unique_ptr<Thread_Pool> _pool;
 
 private:
     bool _init_socket();

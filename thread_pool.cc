@@ -1,18 +1,21 @@
 #include "thread_pool.hh"
-
+#include <iostream>
 
 
 Thread_Pool::Thread_Pool(size_t thread_num) {
     for(int i = 0;i<thread_num;++i) {
-        std::thread(_thread_loop).detach();
+        std::thread(&Thread_Pool::_thread_loop, this).detach();
     }
 }
 
 Thread_Pool::~Thread_Pool() {
+    std::lock_guard<std::mutex> lck_gd(_mtx);
     _is_close = true;
+    _con_var.notify_all();
 }
 
 void Thread_Pool::push_task(std::function<void()> &&fun) {
+    // 修改任务队列前要加锁
     std::lock_guard<std::mutex> lck_gd(_mtx);
     _tasks.push(std::forward<std::function<void()>>(fun));
     _con_var.notify_one();
@@ -30,6 +33,7 @@ void Thread_Pool::_thread_loop() {
             // 释放锁
             unq_lock.unlock();
             // 执行任务
+            std::cout<<"this is thread "<<_gei_id()<<" doing the task.\n";
             task();
             // 获取锁
             unq_lock.lock();

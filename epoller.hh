@@ -14,7 +14,7 @@ public:
     bool add_fd(int sock_fd, uint32_t event);
     bool mod_fd(int sock_fd, uint32_t event);
     bool del_fd(int sock_fd);
-    int wait(size_t timeout);
+    int wait(int timeout);
     int get_sock_fd(size_t i) const;
     uint32_t get_event(size_t i) const;
 private:

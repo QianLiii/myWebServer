@@ -33,7 +33,7 @@ void Thread_Pool::_thread_loop() {
             // 释放锁
             unq_lock.unlock();
             // 执行任务
-            std::cout<<"this is thread "<<_gei_id()<<" doing the task.\n";
+            // std::cout<<"this is thread "<<_gei_id()<<" doing the task.\n";
             task();
             // 获取锁
             unq_lock.lock();

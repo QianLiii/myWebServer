@@ -4,7 +4,6 @@
 
 // 初始化epoller
 Epoller::Epoller(size_t max_events) : _epoll_fd(epoll_create(128)), _events(max_events) {
-    std::cout<<"epoller fd: "<<_epoll_fd<<std::endl;
 }
 
 Epoller::~Epoller() {
@@ -15,7 +14,6 @@ Epoller::~Epoller() {
 
 // 注册监视sock_fd的event事件
 bool Epoller::add_fd(int sock_fd, uint32_t event) {
-    std::cout<<"add event EPOLLIN : "<<((event & EPOLLIN) != 0)<<std::endl;
     epoll_event ev{};
     ev.events = event;
     ev.data.fd = sock_fd;
@@ -37,7 +35,7 @@ bool Epoller::del_fd(int sock_fd) {
 }
 
 // 封装epoll_wait
-int Epoller::wait(size_t timeout) {
+int Epoller::wait(int timeout) {
     std::cout<<"waiting for events..."<<std::endl;
     return epoll_wait(_epoll_fd, &_events[0], _events.size(), timeout);
 }

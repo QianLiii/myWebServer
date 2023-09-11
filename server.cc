@@ -12,7 +12,7 @@ Server::Server(in_port_t port, size_t thread_num, int64_t timeout)
 }
 
 void Server::start() {
-    std::cout<<clk::now().time_since_epoch().count()<<" server started"<<std::endl;
+    // std::cout<<clk::now().time_since_epoch().count()<<" server started"<<std::endl;
     _loop();
 }
 // 初始化socket相关配置
@@ -52,7 +52,7 @@ void Server::_loop() {
     // 距下一次超时的时间，-1表示无超时时间
     int64_t next_timeout = -1;
     while(!_is_close) {
-        std::cout<<clk::now().time_since_epoch().count()<<" looping..."<<std::endl;
+        // std::cout<<clk::now().time_since_epoch().count()<<" looping..."<<std::endl;
         if(_timeout >= 0) {
             next_timeout = _timer->tick();
         }
@@ -70,7 +70,7 @@ void Server::_loop() {
             // 处理断开连接
             else if(ev & (EPOLLRDHUP | EPOLLERR | EPOLLHUP)) {
                 _close_sock(fd);
-                std::cout<<clk::now().time_since_epoch().count()<<" connection close\n";
+                // std::cout<<clk::now().time_since_epoch().count()<<" connection close\n";
             }
             // 分发读事件
             else if(ev & EPOLLIN) {
@@ -90,7 +90,7 @@ void Server::_loop() {
 
 // 向_epoller中添加新的socket
 void Server::_add_new_sock() {
-    std::cout<<clk::now().time_since_epoch().count()<<" new client comes\n";
+    // std::cout<<clk::now().time_since_epoch().count()<<" new client comes\n";
     sockaddr_in addr{};
     socklen_t len{sizeof(addr)};
     int cli_sock = accept(_serv_sock, (sockaddr *)&addr, &len);
@@ -99,7 +99,8 @@ void Server::_add_new_sock() {
     }
     _epoller->add_fd(cli_sock, EPOLLIN | EPOLLET | EPOLLONESHOT);
     _set_nonblocking(cli_sock);
-    _handlers[cli_sock] = std::make_shared<Echo_Handler>();
+    // _handlers[cli_sock] = std::make_shared<Echo_Handler>();
+    _connections[cli_sock] = std::make_shared<Http_Connection>(cli_sock);
     // 开启定时器
     if(_timeout >= 0) {
         _timer->push(cli_sock, _timeout, std::bind(&Server::_close_sock, this, cli_sock));
@@ -108,7 +109,8 @@ void Server::_add_new_sock() {
 
 void Server::_close_sock(int fd) {
     _epoller->del_fd(fd);
-    _handlers.erase(fd);
+    // _handlers.erase(fd);
+    _connections.erase(fd);
     // 要主动关闭对应的定时器（不执行回调函数）
     _timer->erase(fd);
     close(fd);
@@ -116,34 +118,21 @@ void Server::_close_sock(int fd) {
 
 // 从client socket读，非阻塞IO，边沿触发
 void Server::_read(int fd) {
-    std::cout<<clk::now().time_since_epoch().count()<<" handling reading...\n";
-    auto & handler = _handlers[fd];
-    int total_bytes = 0;
-    while(true) {
-        int len = read(fd, (void *)&(handler->_rd_buf[0]), 4);
-        if(len == 0) {
-            // 关闭连接
-            std::cout << "connection close because EOF\n";
-            _close_sock(fd);
-            return;
-        }
-        if(len < 0 ) {
-            // 当前没有可读数据
-            if(errno == EAGAIN) {
-                break;
-            }
-            else {
-                throw std::exception();
-            }
-        }
-        else {
-            total_bytes += len;
-            // 对读到的数据处理
-            handler->_wr_buf.append(&(handler->_rd_buf[0]), len);
-        }
+    // 调用connection的read
+    // 应该处理几种情况：没有读完，注册一次读事件（需要保存下已经读的内容）；
+    // 读完了，注册写事件；
+    // 错误情况
+
+    // std::cout<<clk::now().time_since_epoch().count()<<" handling reading...\n";
+    
+    int ret = _connections[fd]->read();
+    if(ret == 0 || ret == ERR_READ_FAIL) {
+        // 关闭连接
+        _close_sock(fd);
     }
-    // 完成了读任务，注册一次写事件
-    if(total_bytes > 0) {
+    // 如果read()遇到EAGAIN且read buffer不为空，就认为完成了数据的读取（认为一次http请求可以被一次性读完）
+    else if(_connections[fd]->read_ready()) {
+        std::cout<<_connections[fd]->__test_get_buffer();
         _epoller->mod_fd(fd, EPOLLOUT | EPOLLET | EPOLLONESHOT);
     }
     // 否则注册一次读事件
@@ -152,14 +141,20 @@ void Server::_read(int fd) {
     }
 }
 
-// 向client socket写，一次写完，没有特殊的处理
+// 向client socket写
 void Server::_write(int fd) {
-    std::cout<<clk::now().time_since_epoch().count()<<" handling writing...\n";
-    auto &buf = _handlers[fd]->_wr_buf;
-    write(fd, &(buf[0]), buf.size());
 
+    // std::cout<<clk::now().time_since_epoch().count()<<" handling writing...\n";
+
+    int ret = _connections[fd]->write();
     // 写完后注册读事件
-    _epoller->mod_fd(fd, EPOLLIN | EPOLLET | EPOLLONESHOT);
+    if(ret == ERR_SUCCESS && _connections[fd]->need_keep_alive()) {
+        _connections[fd]->clear();
+        _epoller->mod_fd(fd, EPOLLIN | EPOLLET | EPOLLONESHOT);
+    }
+    else {
+        _close_sock(fd);
+    }
 }
 
 // 设置socket为非阻塞

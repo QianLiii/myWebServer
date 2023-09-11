@@ -12,6 +12,7 @@
 #include "echo_handler.hh"
 #include "thread_pool.hh"
 #include "timer.hh"
+#include "http_connection.hh"
 
 #define MAX_EVENTS 1024
 
@@ -26,7 +27,8 @@ private:
     bool _is_close;
     int _serv_sock;
     std::unique_ptr<Epoller> _epoller;
-    std::map<int, std::shared_ptr<Echo_Handler>> _handlers;
+    // std::map<int, std::shared_ptr<Echo_Handler>> _handlers;
+    std::map<int, std::shared_ptr<Http_Connection>> _connections;
     std::unique_ptr<Thread_Pool> _pool;
     std::unique_ptr<Timer> _timer;
 

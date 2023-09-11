@@ -45,4 +45,5 @@ void Thread_Pool::_thread_loop() {
             // _con_var.wait(unq_lock, [&](){return !_tasks.empty();});
         }
     }
+    std::cout<<"thread "<<std::this_thread::get_id()<<" will be destroyed very soon.\n";
 }

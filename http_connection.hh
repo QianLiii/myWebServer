@@ -8,6 +8,11 @@
 #include <map>
 #include <algorithm>
 #include <sstream>
+#include <sys/stat.h>
+#include <sys/mman.h>
+#include <fcntl.h>
+
+#include "serv_exception.hh"
 
 enum ERROR_TYPE {
     ERR_SUCCESS = 0,
@@ -52,13 +57,15 @@ private:
 
     std::string_view _sub_view(size_t begin, size_t end);
 
+    std::string _file_to_str(std::string_view path);
+
 private:
     bool _no_keep_alive;
     int _fd;
     std::string _read_buffer;
-    std::string_view _method;
-    std::string_view _uri;
-    std::string_view _version;
+    std::string _method;
+    std::string _uri;
+    std::string _version;
     std::map<std::string_view, std::string_view> _header;
 
     size_t _header_start_pos;   // 用来记录请求头开始位置

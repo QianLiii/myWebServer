@@ -7,7 +7,7 @@
 #include <errno.h>
 #include <map>
 #include <iostream>
-
+#include "serv_exception.hh"
 #include "epoller.hh"
 #include "echo_handler.hh"
 #include "thread_pool.hh"

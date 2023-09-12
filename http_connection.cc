@@ -44,7 +44,13 @@ int Http_Connection::write() {
         _handle_error(ret);
         return ret;
     }
-    _send_response("200", "OK", "echo request body: \n"+_read_buffer.substr(_body_start_pos));
+    try {
+        _send_response("200", "OK", _file_to_str("src/"+(_uri.empty()?"index.html":_uri)));
+    } catch (Serv_Exception e) {
+        std::cout<<e.what();
+        _handle_error(ERR_NOT_FOUND);
+        return ERR_NOT_FOUND;
+    }
     return ERR_SUCCESS;
 }
 
@@ -56,6 +62,7 @@ int Http_Connection::_parse_request_line() {
         return ERR_BAD_REQUEST;
     }
     _method = _read_buffer.substr(0, pos1);
+    std::cout<<"len: "<<_method.size()<<"\n"<<"method: "<<_method<<std::endl;
     // 只支持GET
     if(_method != "GET") {
         return ERR_NOT_IMPLEMENTED;
@@ -68,11 +75,7 @@ int Http_Connection::_parse_request_line() {
     }
     ++pos1;
     _uri = _read_buffer.substr(pos1, pos2 - pos1);
-    if(_uri.empty()) {
-        _uri = ".";
-    }
-    // uri还需要一些额外的处理
-    // ...
+    std::cout<<_uri<<std::endl;
     ++pos2;
     _header_start_pos = _read_buffer.find("\r\n");
     if(_header_start_pos == std::string::npos) {
@@ -108,9 +111,9 @@ int Http_Connection::_parse_header() {
         // 把header的key转小写
         std::transform(_read_buffer.begin()+line_begin, _read_buffer.begin()+pos1, _read_buffer.begin()+line_begin, ::tolower);
 
-        std::string_view key = _sub_view(line_begin, pos1);
+        std::string key = _read_buffer.substr(line_begin, pos1 - line_begin);
 
-        _header[key] = _sub_view(pos1+2, line_end-pos1-2);
+        _header[key] = _read_buffer.substr(pos1+2, line_end-pos1-2);
         auto it = _header.find("connection");
         if(it != _header.end()) {
             std::string val(it->second);
@@ -168,7 +171,28 @@ void Http_Connection::_handle_error(int ERR) {
 // 获取read buffer的某段string_view
 std::string_view Http_Connection::_sub_view(size_t begin, size_t end) {
     std::string_view sv = _read_buffer;
-    sv.remove_prefix(begin);
     sv.remove_suffix(end);
+    sv.remove_prefix(begin);
     return sv;
+}
+
+
+std::string Http_Connection::_file_to_str(std::string_view path) {
+    struct stat st{};
+    stat(&(path[0]), &st);
+    void* addr = nullptr;
+    int fd = open(&(path[0]), O_RDWR);
+    std::cout<<&(path[0])<<std::endl;
+    if(fd == -1) {
+        std::cout<<errno<<std::endl;
+        throw Serv_Exception("resource file open failed\n");
+    }
+    addr = mmap(addr, st.st_size, PROT_READ, MAP_SHARED, fd, 0);
+    if(addr == MAP_FAILED) {
+        throw Serv_Exception("memory map failed\n");
+    }
+    std::string str(static_cast<char*>(addr));
+    close(fd);
+    munmap(addr, st.st_size);
+    return str;
 }

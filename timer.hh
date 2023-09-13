@@ -1,6 +1,7 @@
 #ifndef TIMER_H
 #define TIMER_H
 
+#include <memory>
 #include <chrono>
 #include <functional>
 #include <deque>
@@ -12,6 +13,9 @@ using clk = std::chrono::high_resolution_clock;
 class Timer {
     // 单个定时器
     struct Timer_Node {
+        Timer_Node(int fd, clk::time_point exp_time, std::function<void()>&& callback) :
+        _fd(fd), _expire_time(exp_time), _callback(callback) {}
+
         int _fd;
         clk::time_point _expire_time;
         std::function<void()> _callback;
@@ -30,7 +34,7 @@ public:
     int64_t tick();
 
 private:
-    std::deque<Timer_Node> _heap;   // 堆的存储结构
+    std::deque<std::shared_ptr<Timer_Node>> _heap;   // 堆的存储结构
     std::unordered_map<int, size_t> _mapping;   // 从fd到_heap下标的映射
 
 private:

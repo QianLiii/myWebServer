@@ -26,7 +26,8 @@ int Http_Connection::read() {
             }
         }
         else {
-            _read_buffer.append(tmp_buf);
+            // 要指定长度，因为tmp_buf不以\0结尾
+            _read_buffer.append(tmp_buf, len);
         }
     }
 }
@@ -58,11 +59,9 @@ int Http_Connection::_parse_request_line() {
     size_t pos1 = std::string::npos, pos2 = pos1;
     pos1 = _read_buffer.find(' ');
     if(pos1 == std::string::npos) {
-        std::cout<<"position 1\n";
         return ERR_BAD_REQUEST;
     }
     _method = _read_buffer.substr(0, pos1);
-    std::cout<<"len: "<<_method.size()<<"\n"<<"method: "<<_method<<std::endl;
     // 只支持GET
     if(_method != "GET") {
         return ERR_NOT_IMPLEMENTED;
@@ -70,16 +69,13 @@ int Http_Connection::_parse_request_line() {
     ++pos1;
     pos2 = _read_buffer.find(' ', pos1);
     if(pos2 == std::string::npos) {
-        std::cout<<"position 2\n";
         return ERR_BAD_REQUEST;
     }
     ++pos1;
     _uri = _read_buffer.substr(pos1, pos2 - pos1);
-    std::cout<<_uri<<std::endl;
     ++pos2;
     _header_start_pos = _read_buffer.find("\r\n");
     if(_header_start_pos == std::string::npos) {
-        std::cout<<"position 3\n";
         return ERR_BAD_REQUEST;
     }
     _version = _read_buffer.substr(pos2, _header_start_pos - pos2);
@@ -104,7 +100,6 @@ int Http_Connection::_parse_header() {
         size_t line_begin = pos1;
         pos1 = _read_buffer.find(": ", line_begin);
         if(pos1 == std::string::npos) {
-            std::cout<<"position 4\n";
             return ERR_BAD_REQUEST;
         }
 
@@ -124,7 +119,6 @@ int Http_Connection::_parse_header() {
         }
     }
     if(pos1 >= _read_buffer.size() || _read_buffer.substr(pos1, 2) != "\r\n") {
-        std::cout<<"position 5\n";
         return ERR_BAD_REQUEST;
     }
     _body_start_pos = pos1 + 2;
@@ -182,9 +176,8 @@ std::string Http_Connection::_file_to_str(std::string_view path) {
     stat(&(path[0]), &st);
     void* addr = nullptr;
     int fd = open(&(path[0]), O_RDWR);
-    std::cout<<&(path[0])<<std::endl;
     if(fd == -1) {
-        std::cout<<errno<<std::endl;
+        // std::cout<<errno<<std::endl;
         throw Serv_Exception("resource file open failed\n");
     }
     addr = mmap(addr, st.st_size, PROT_READ, MAP_SHARED, fd, 0);

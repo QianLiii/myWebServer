@@ -6,6 +6,8 @@
 #include <queue>
 #include <functional>
 #include <condition_variable>
+#include <iostream>
+#include "serv_exception.hh"
 
 class Thread_Pool {
 public:

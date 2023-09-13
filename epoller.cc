@@ -36,7 +36,6 @@ bool Epoller::del_fd(int sock_fd) {
 
 // 封装epoll_wait
 int Epoller::wait(int timeout) {
-    std::cout<<"waiting for events..."<<std::endl;
     return epoll_wait(_epoll_fd, &_events[0], _events.size(), timeout);
 }
 

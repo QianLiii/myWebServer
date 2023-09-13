@@ -12,6 +12,8 @@
 #include <sys/mman.h>
 #include <fcntl.h>
 
+#include<iostream>
+
 #include "serv_exception.hh"
 
 enum ERROR_TYPE {
@@ -32,6 +34,7 @@ class Http_Connection {
 
 public:
     Http_Connection(int fd);
+    // ~Http_Connection() {std::cout<<"connection "<<_fd<<"was destructed\n";}
     int read();
     int write();
 

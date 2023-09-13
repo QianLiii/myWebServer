@@ -6,12 +6,13 @@
 void Timer::push(int fd, int64_t timeout, std::function<void()> &&callback) {
     if(_mapping.count(fd) > 0) {
         update(fd, timeout);
-        _heap[_mapping[fd]]._callback = std::forward<std::function<void()>>(callback);
+        _heap[_mapping[fd]]->_callback = std::forward<std::function<void()>>(callback);
     }
     else {
         size_t idx = _heap.size();
         _mapping[fd] = idx;
-        _heap.push_back({fd, clk::now() + std::chrono::milliseconds(timeout), std::forward<std::function<void()>>(callback)});
+        _heap.push_back(std::make_shared<Timer_Node>(
+            fd, clk::now() + std::chrono::milliseconds(timeout), std::forward<std::function<void()>>(callback)));
         _swim(idx);
     }
 }
@@ -22,7 +23,8 @@ void Timer::update(int fd, int64_t timeout) {
         return;
     }
     int idx = _mapping[fd];
-    _heap[idx]._expire_time = clk::now() + std::chrono::milliseconds(timeout);
+
+    _heap[idx]->_expire_time = clk::now() + std::chrono::milliseconds(timeout);
     _sink(idx);
 }
 
@@ -35,12 +37,18 @@ void Timer::erase(int fd) {
 
 // 上浮
 void Timer::_swim(size_t i) {
+    if(i >= _heap.size()) {
+        return;
+    }
     int parent = (i - 1) / 2;
     while(parent >= 0) {
         if(_heap[i] < _heap[parent]) {
             _swap(i, parent);
             parent = (parent - 1) / 2;
             i = parent;
+        }
+        else {
+            return;
         }
     }
 }
@@ -66,7 +74,7 @@ void Timer::_sink(size_t i) {
 
 // 交换两个Timer_Node
 void Timer::_swap(size_t lhs_idx, size_t rhs_idx) {
-    int lhs_fd = _heap[lhs_idx]._fd, rhs_fd = _heap[rhs_idx]._fd;
+    int lhs_fd = _heap[lhs_idx]->_fd, rhs_fd = _heap[rhs_idx]->_fd;
     std::swap(_heap[lhs_idx], _heap[rhs_idx]);
     _mapping[lhs_fd] = rhs_idx;
     _mapping[rhs_fd] = lhs_idx;
@@ -77,7 +85,7 @@ void Timer::_erase(size_t i) {
     if(_heap.empty()) {
         return;
     }
-    int fd = _heap[i]._fd;
+    int fd = _heap[i]->_fd;
     _swap(i, _heap.size()-1);
     _heap.pop_back();
     _mapping.erase(fd);
@@ -93,7 +101,7 @@ int64_t Timer::tick() {
         return -1;
     }
     else {
-        auto time_diff = std::chrono::duration_cast<std::chrono::milliseconds>(_heap.front()._expire_time - clk::now()).count();
+        auto time_diff = std::chrono::duration_cast<std::chrono::milliseconds>(_heap.front()->_expire_time - clk::now()).count();
         return time_diff > 0 ? time_diff : 0;
     }
 }
@@ -104,11 +112,11 @@ void Timer::_tick() {
     while(!_heap.empty()) {
         auto oldest = _heap.front();
         // 如果最早的定时器还没有超时，后面的也不会超时
-        if(std::chrono::duration_cast<std::chrono::milliseconds>(oldest._expire_time - clk::now()).count() > 0) {
+        if(std::chrono::duration_cast<std::chrono::milliseconds>(oldest->_expire_time - clk::now()).count() > 0) {
             return;
         }
-        std::cout<<"client socket "<<oldest._fd<<" closed because expired.\n";
-        oldest._callback();
+        std::cout<<"client socket "<<oldest->_fd<<" closed because expired.\n";
+        oldest->_callback();
         _erase(0);
     }
 }

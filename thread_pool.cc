@@ -34,7 +34,12 @@ void Thread_Pool::_thread_loop() {
             unq_lock.unlock();
             // 执行任务
             // std::cout<<"this is thread "<<_gei_id()<<" doing the task.\n";
-            task();
+            try {
+                task();
+            } catch (Serv_Exception e) {
+                std::cout<<e.what();
+                exit(1);
+            }
             // 获取锁
             unq_lock.lock();
         }

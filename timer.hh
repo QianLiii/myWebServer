@@ -6,6 +6,7 @@
 #include <functional>
 #include <deque>
 #include <unordered_map>
+#include <mutex>
 
 using clk = std::chrono::high_resolution_clock;
 
@@ -36,6 +37,7 @@ public:
 private:
     std::deque<std::shared_ptr<Timer_Node>> _heap;   // 堆的存储结构
     std::unordered_map<int, size_t> _mapping;   // 从fd到_heap下标的映射
+    std::mutex _mtx;
 
 private:
     void _swim(size_t i);

@@ -105,7 +105,7 @@ void Server::_add_new_sock() {
     _epoller->add_fd(cli_sock, EPOLLIN | EPOLLET | EPOLLONESHOT);
     _set_nonblocking(cli_sock);
     {
-        std::lock_guard<std::shared_mutex> guard(_mtx);
+        std::lock_guard<std::shared_mutex> guard(_conn_mtx);
         _connections[cli_sock] = std::make_shared<Http_Connection>(cli_sock);
     }
     // _connections.insert({cli_sock, std::make_shared<Http_Connection>(cli_sock)});
@@ -121,7 +121,7 @@ void Server::_add_new_sock() {
 void Server::_close_sock(int fd) {
     _epoller->del_fd(fd);
     {
-        std::lock_guard<std::shared_mutex> guard(_mtx);
+        std::lock_guard<std::shared_mutex> guard(_conn_mtx);
         if(_connections.count(fd) > 0) {
             _connections.erase(fd);
         }
@@ -139,7 +139,7 @@ void Server::_read(int fd) {
     // 错误情况
 
     {
-        std::shared_lock<std::shared_mutex> guard(_mtx);
+        std::shared_lock<std::shared_mutex> guard(_conn_mtx);
         if(_connections.count(fd) <= 0) {
             throw Serv_Exception("invalid connection.\n");
         }
@@ -147,7 +147,7 @@ void Server::_read(int fd) {
     // std::cout<<"handle data from socket "<<fd<<"\n"<<std::endl;
     int ret;
     {
-        std::shared_lock<std::shared_mutex> guard(_mtx);
+        std::shared_lock<std::shared_mutex> guard(_conn_mtx);
         ret = _connections[fd]->read();
     }
     if(ret == 0 || ret == ERR_READ_FAIL) {
@@ -159,7 +159,7 @@ void Server::_read(int fd) {
     else {
         bool ready;
         {
-            std::shared_lock<std::shared_mutex> guard(_mtx);
+            std::shared_lock<std::shared_mutex> guard(_conn_mtx);
             ready = _connections[fd]->read_ready();
         }
         if(ready) {
@@ -180,18 +180,18 @@ void Server::_write(int fd) {
     // std::cout<<"send data to socket "<<fd<<"\n"<<std::endl;
     int ret;
     {
-        std::shared_lock<std::shared_mutex> guard(_mtx);
+        std::shared_lock<std::shared_mutex> guard(_conn_mtx);
         ret = _connections[fd]->write();
     }
     // 写完后注册读事件
     bool keep_alive;
     {
-        std::shared_lock<std::shared_mutex> guard(_mtx);
+        std::shared_lock<std::shared_mutex> guard(_conn_mtx);
         keep_alive = _connections[fd]->need_keep_alive();
     }
     if(ret == ERR_SUCCESS && keep_alive) {
         {
-            std::shared_lock<std::shared_mutex> guard(_mtx);
+            std::shared_lock<std::shared_mutex> guard(_conn_mtx);
             _connections[fd]->clear();
         }
         _epoller->mod_fd(fd, EPOLLIN | EPOLLET | EPOLLONESHOT);

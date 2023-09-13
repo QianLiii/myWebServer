@@ -1,7 +1,7 @@
 #include "http_connection.hh"
 #include <iostream>
 
-#define TMP_BUFFER_SIZE 64
+#define TMP_BUFFER_SIZE 256
 
 Http_Connection::Http_Connection(int fd) : _no_keep_alive(false), _fd(fd), _read_buffer() {
 

@@ -34,7 +34,7 @@ private:
     std::unique_ptr<Timer> _timer;
     
     // 重要：：多个工作线程和主线程可能出现同时访问以上成员的情况，所以需要读写锁
-    std::shared_mutex _mtx;
+    std::shared_mutex _conn_mtx;
 
 private:
     bool _init_socket();

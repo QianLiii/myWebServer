@@ -4,8 +4,11 @@
 
 // 插入新定时器
 void Timer::push(int fd, int64_t timeout, std::function<void()> &&callback) {
+    std::lock_guard<std::mutex> guard(_mtx);
     if(_mapping.count(fd) > 0) {
-        update(fd, timeout);
+        size_t idx = _mapping[fd];
+        _heap[idx]->_expire_time = clk::now() + std::chrono::milliseconds(timeout);
+        _sink(idx);
         _heap[_mapping[fd]]->_callback = std::forward<std::function<void()>>(callback);
     }
     else {
@@ -19,16 +22,17 @@ void Timer::push(int fd, int64_t timeout, std::function<void()> &&callback) {
 
 // 更新时间
 void Timer::update(int fd, int64_t timeout) {
+    std::lock_guard<std::mutex> guard(_mtx);
     if(_mapping.count(fd) == 0) {
         return;
     }
     int idx = _mapping[fd];
-
     _heap[idx]->_expire_time = clk::now() + std::chrono::milliseconds(timeout);
     _sink(idx);
 }
 
 void Timer::erase(int fd) {
+    std::lock_guard<std::mutex> guard(_mtx);
     if(_mapping.count(fd) == 0) {
         return;
     }
@@ -96,6 +100,7 @@ void Timer::_erase(size_t i) {
 
 
 int64_t Timer::tick() {
+    std::lock_guard<std::mutex> guard(_mtx);
     _tick();
     if(_heap.empty()) {
         return -1;

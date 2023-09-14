@@ -2,8 +2,9 @@
 #include <iostream>
 
 
-Thread_Pool::Thread_Pool(size_t thread_num) {
-    for(int i = 0;i<thread_num;++i) {
+Thread_Pool::Thread_Pool() {
+    for(int i = 0;i<THREAD_NUM;++i) {
+        std::cout<<"worker therad created."<<std::endl;
         std::thread(&Thread_Pool::_thread_loop, this).detach();
     }
 }

@@ -14,6 +14,7 @@
 #include "thread_pool.hh"
 #include "timer.hh"
 #include "http_connection.hh"
+#include "sub_reactor_pool.hh"
 
 #define MAX_EVENTS 1024
 
@@ -30,7 +31,7 @@ private:
     int _serv_sock;
     std::unique_ptr<Epoller> _epoller;
     std::map<int, std::shared_ptr<Http_Connection>> _connections;
-    std::unique_ptr<Thread_Pool> _pool;
+    std::unique_ptr<Sub_Reactor_Pool> _sub_reactor_pool;
     std::unique_ptr<Timer> _timer;
     
     // 重要：：多个工作线程和主线程可能出现同时访问以上成员的情况，所以需要读写锁
@@ -40,9 +41,7 @@ private:
     bool _init_socket();
     void _set_nonblocking(int fd);
     void _add_new_sock();
-    void _close_sock(int fd);
-    void _read(int fd);
-    void _write(int fd);
+
     void _loop();
 };
 #endif

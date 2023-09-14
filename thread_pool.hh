@@ -9,10 +9,22 @@
 #include <iostream>
 #include "serv_exception.hh"
 
+#define THREAD_NUM 8
+
 class Thread_Pool {
-public:
-    Thread_Pool(size_t thread_num);
+
+private:
+    Thread_Pool();
     ~Thread_Pool();
+public:
+    Thread_Pool(const Thread_Pool&) = delete;
+    Thread_Pool& operator=(const Thread_Pool&) = delete;
+    
+    static Thread_Pool& get_pool() {
+        static Thread_Pool pool;
+        return pool;
+    }
+    
     void push_task(std::function<void()> &&fun);
 private:
     std::mutex _mtx;
